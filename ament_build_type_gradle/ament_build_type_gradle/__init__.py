@@ -70,12 +70,13 @@ class AmentGradleBuildType(BuildType):
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
+            '-Pament.build_tests=' + str(context.build_tests),
         ]
         cmd_args += context.ament_gradle_args
 
         cmd = [GRADLE_EXECUTABLE]
         cmd += cmd_args
-        cmd += ['build']
+        cmd += ['assemble']
 
         yield BuildAction(cmd, cwd=context.source_space)
 
@@ -84,6 +85,7 @@ class AmentGradleBuildType(BuildType):
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
+            '-Pament.build_tests=' + str(context.build_tests),
         ]
         cmd_args += context.ament_gradle_args
 
@@ -94,23 +96,33 @@ class AmentGradleBuildType(BuildType):
         yield BuildAction(cmd, cwd=context.source_space)
 
     def on_install(self, context):
-        cmd = [
-            GRADLE_EXECUTABLE,
+        cmd_args = [
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            'build',
+            '-Pament.build_tests=' + str(context.build_tests),
         ]
+
+        cmd_args += context.ament_gradle_args
+
+        cmd = [GRADLE_EXECUTABLE]
+        cmd += cmd_args
+        cmd += ['assemble']
 
         yield BuildAction(cmd, cwd=context.source_space)
 
     def on_uninstall(self, context):
-        cmd = [
-            GRADLE_EXECUTABLE,
+        cmd_args = [
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            'clean',
+            '-Pament.build_tests=' + str(context.build_tests),
         ]
+
+        cmd_args += context.ament_gradle_args
+
+        cmd = [GRADLE_EXECUTABLE]
+        cmd += cmd_args
+        cmd += ['clean']
 
         yield BuildAction(cmd, cwd=context.source_space)
