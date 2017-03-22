@@ -1,5 +1,4 @@
-# Copyright 2014 Open Source Robotics Foundation, Inc.
-# Copyright 2016 Esteve Fernandez <esteve@apache.org>
+# Copyright 2016-2017 Esteve Fernandez <esteve@apache.org>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Based on
+# https://github.com/ament/ament_tools/blob/master/ament_tools/build_types/ament_python.py
+# Copyright 2014 Open Source Robotics Foundation, Inc.
 
 """Implements the BuildType support for gradle based ament packages."""
 
@@ -77,6 +80,7 @@ class AmentGradleBuildType(BuildType):
         cmd = [GRADLE_EXECUTABLE]
         cmd += cmd_args
         cmd += ['assemble']
+        cmd += ['--stacktrace']
 
         yield BuildAction(cmd, cwd=context.source_space)
 
@@ -92,6 +96,7 @@ class AmentGradleBuildType(BuildType):
         cmd = [GRADLE_EXECUTABLE]
         cmd += cmd_args
         cmd += ['test']
+        cmd += ['--stacktrace']
 
         yield BuildAction(cmd, cwd=context.source_space)
 
@@ -108,6 +113,7 @@ class AmentGradleBuildType(BuildType):
         cmd = [GRADLE_EXECUTABLE]
         cmd += cmd_args
         cmd += ['assemble']
+        cmd += ['--stacktrace']
 
         yield BuildAction(cmd, cwd=context.source_space)
 
@@ -124,5 +130,6 @@ class AmentGradleBuildType(BuildType):
         cmd = [GRADLE_EXECUTABLE]
         cmd += cmd_args
         cmd += ['clean']
+        cmd += ['--stacktrace']
 
         yield BuildAction(cmd, cwd=context.source_space)
