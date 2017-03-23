@@ -1,0 +1,8 @@
+ament_prepend_unique_value CLASSPATH "."
+IFS=";"
+jars="@_AMENT_EXPORT_JARS_CLASSPATH@"
+
+for jar in $jars
+do
+  ament_prepend_unique_value CLASSPATH "$jar"
+done

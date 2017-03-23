@@ -20,10 +20,16 @@
 import os
 import shutil
 
-from ament_tools.helper import extract_argument_group
+from ament_build_type_gradle.templates import get_environment_hook_template_path
 
+from ament_package.templates import configure_file
+from ament_package.templates import get_package_level_template_names
+
+from ament_tools.helper import extract_argument_group
 from ament_tools.build_type import BuildAction
 from ament_tools.build_type import BuildType
+from ament_tools.build_types.common import expand_package_level_setup_files
+from ament_tools.helper import deploy_file
 
 IS_WINDOWS = os.name == 'nt'
 
@@ -67,6 +73,36 @@ class AmentGradleBuildType(BuildType):
         return ce
 
     def on_build(self, context):
+        # expand environment hook for CLASSPATH
+        ext = '.sh.in' if not IS_WINDOWS else '.bat.in'
+        template_path = get_environment_hook_template_path('classpath' + ext)
+
+        # If using the Gradle Ament Plugin, JAR files are installed into
+        # $AMENT_CURRENT_PREFIX/share/$PROJECT_NAME/java/$PROJECT_NAME.jar
+        classpath = os.path.join('$AMENT_CURRENT_PREFIX', 'share',
+                                 context.package_manifest.name, 'java',
+                                 context.package_manifest.name + ".jar")
+
+        content = configure_file(template_path,
+                                 {'_AMENT_EXPORT_JARS_CLASSPATH': classpath, })
+
+        environment_hooks_path = os.path.join(
+            'share', context.package_manifest.name, 'environment')
+        classpath_environment_hook = os.path.join(
+            environment_hooks_path, os.path.basename(template_path)[:-3])
+
+        destination_path = os.path.join(context.build_space,
+                                        classpath_environment_hook)
+        destination_dir = os.path.dirname(destination_path)
+        if not os.path.exists(destination_dir):
+            os.makedirs(destination_dir)
+        with open(destination_path, 'w') as h:
+            h.write(content)
+
+        # expand package-level setup files
+        expand_package_level_setup_files(context, [classpath_environment_hook],
+                                         environment_hooks_path)
+
         cmd_args = [
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
@@ -99,6 +135,39 @@ class AmentGradleBuildType(BuildType):
         yield BuildAction(cmd, cwd=context.source_space)
 
     def on_install(self, context):
+        # deploy package manifest
+        deploy_file(
+            context,
+            context.source_space,
+            'package.xml',
+            dst_subfolder=os.path.join('share', context.package_manifest.name))
+
+        # create marker file
+        marker_file = os.path.join(context.install_space, 'share',
+                                   'ament_index', 'resource_index', 'packages',
+                                   context.package_manifest.name)
+        if not os.path.exists(marker_file):
+            marker_dir = os.path.dirname(marker_file)
+            if not os.path.exists(marker_dir):
+                os.makedirs(marker_dir)
+            with open(marker_file, 'w'):  # "touching" the file
+                pass
+
+        ext = '.sh' if not IS_WINDOWS else '.bat'
+
+        # deploy CLASSPATH environment hook
+        destination_file = 'classpath' + ('.sh' if not IS_WINDOWS else '.bat')
+        deploy_file(context, context.build_space,
+                    os.path.join('share', context.package_manifest.name,
+                                 'environment', destination_file))
+
+        # deploy package-level setup files
+        for name in get_package_level_template_names():
+            assert name.endswith('.in')
+            deploy_file(context, context.build_space,
+                        os.path.join('share', context.package_manifest.name,
+                                     name[:-3]))
+
         cmd_args = [
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
