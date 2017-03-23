@@ -21,8 +21,5 @@ setup(
     license='Apache License, Version 2.0',
     test_suite='test',
     entry_points={
-        'ament.build_types': [
-            'ament_gradle = ament_build_type_gradle:AmentGradleBuildType',
-        ],
-    }
-)
+        'ament.build_types': ['ament_gradle = ament_build_type_gradle:AmentGradleBuildType', ],
+    })

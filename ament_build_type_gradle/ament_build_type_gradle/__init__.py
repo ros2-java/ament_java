@@ -15,7 +15,6 @@
 # Based on
 # https://github.com/ament/ament_tools/blob/master/ament_tools/build_types/ament_python.py
 # Copyright 2014 Open Source Robotics Foundation, Inc.
-
 """Implements the BuildType support for gradle based ament packages."""
 
 import os
@@ -27,6 +26,7 @@ from ament_tools.build_type import BuildAction
 from ament_tools.build_type import BuildType
 
 IS_WINDOWS = os.name == 'nt'
+
 
 def get_gradle_executable():
     gradle_script = 'gradle.bat' if IS_WINDOWS else 'gradle'
@@ -51,16 +51,14 @@ class AmentGradleBuildType(BuildType):
             nargs='*',
             default=[],
             help="Arbitrary arguments which are passed to 'ament_gradle' Gradle projects. "
-                 "Argument collection can be terminated with '--'.")
+            "Argument collection can be terminated with '--'.")
 
     def argument_preprocessor(self, args):
         # The ament CMake pass-through flag collects dashed options.
         # This requires special handling or argparse will complain about
         # unrecognized options.
         args, gradle_args = extract_argument_group(args, '--ament-gradle-args')
-        extras = {
-            'ament_gradle_args': gradle_args,
-        }
+        extras = {'ament_gradle_args': gradle_args, }
         return args, extras
 
     def extend_context(self, options):
