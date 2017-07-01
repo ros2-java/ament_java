@@ -30,6 +30,8 @@ from ament_tools.build_type import BuildAction
 from ament_tools.build_type import BuildType
 from ament_tools.build_types.common import expand_package_level_setup_files
 from ament_tools.helper import deploy_file
+from ament_tools.topological_order import topological_order_packages
+from ament_tools.verbs.build_pkg import cli
 
 IS_WINDOWS = os.name == 'nt'
 
@@ -67,9 +69,37 @@ class AmentGradleBuildType(BuildType):
         extras = {'ament_gradle_args': gradle_args, }
         return args, extras
 
+    def ament_gradle_recursive_dependencies(self, context):
+        for export in context.package_manifest.exports:
+            if export.tagname == 'ament_gradle_recursive_dependencies':
+                return True
+        return False
+
+    def get_ament_args(self, context):
+        cmd_args = [
+            '-Pament.build_space=' + context.build_space,
+            '-Pament.install_space=' + context.install_space,
+            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
+            '-Pament.build_tests=' + str(context.build_tests),
+            '-Pament.package_manifest.name=' + context.package_manifest.name,
+            '-Pament.exec_dependency_paths_in_workspace=' +
+            ':'.join(context.exec_dependency_paths_in_workspace),
+            '-Pament.gradle_recursive_dependencies=' + str(
+                self.ament_gradle_recursive_dependencies(context)),
+            '-Pament.gradle_isolated=' + str(context.ament_gradle_isolated),
+        ]
+        return cmd_args
+
     def extend_context(self, options):
         ce = super(AmentGradleBuildType, self).extend_context(options)
-        ce.add('ament_gradle_args', options.ament_gradle_args)
+        ament_gradle_args = list(options.ament_gradle_args)
+        if not any([
+                arg.startswith('-Pament.android_variant=')
+                for arg in ament_gradle_args
+        ]):
+            ament_gradle_args.append('-Pament.android_variant=release')
+        ce.add('ament_gradle_args', ament_gradle_args)
+        ce.add('ament_gradle_isolated', options.isolated)
         return ce
 
     def on_build(self, context):
@@ -103,13 +133,7 @@ class AmentGradleBuildType(BuildType):
         expand_package_level_setup_files(context, [classpath_environment_hook],
                                          environment_hooks_path)
 
-        cmd_args = [
-            '-Pament.build_space=' + context.build_space,
-            '-Pament.install_space=' + context.install_space,
-            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            '-Pament.build_tests=' + str(context.build_tests),
-            '-Pament.package_name=' + context.package_manifest.name,
-        ]
+        cmd_args = self.get_ament_args(context)
         cmd_args += context.ament_gradle_args
 
         cmd = [GRADLE_EXECUTABLE]
@@ -120,13 +144,7 @@ class AmentGradleBuildType(BuildType):
         yield BuildAction(cmd, cwd=context.source_space)
 
     def on_test(self, context):
-        cmd_args = [
-            '-Pament.build_space=' + context.build_space,
-            '-Pament.install_space=' + context.install_space,
-            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            '-Pament.build_tests=' + str(context.build_tests),
-            '-Pament.package_name=' + context.package_manifest.name,
-        ]
+        cmd_args = self.get_ament_args(context)
         cmd_args += context.ament_gradle_args
 
         cmd = [GRADLE_EXECUTABLE]
@@ -170,14 +188,7 @@ class AmentGradleBuildType(BuildType):
                         os.path.join('share', context.package_manifest.name,
                                      name[:-3]))
 
-        cmd_args = [
-            '-Pament.build_space=' + context.build_space,
-            '-Pament.install_space=' + context.install_space,
-            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            '-Pament.build_tests=' + str(context.build_tests),
-            '-Pament.package_name=' + context.package_manifest.name,
-        ]
-
+        cmd_args = self.get_ament_args(context)
         cmd_args += context.ament_gradle_args
 
         cmd = [GRADLE_EXECUTABLE]
@@ -188,14 +199,7 @@ class AmentGradleBuildType(BuildType):
         yield BuildAction(cmd, cwd=context.source_space)
 
     def on_uninstall(self, context):
-        cmd_args = [
-            '-Pament.build_space=' + context.build_space,
-            '-Pament.install_space=' + context.install_space,
-            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            '-Pament.build_tests=' + str(context.build_tests),
-            '-Pament.package_name=' + context.package_manifest.name,
-        ]
-
+        cmd_args = self.get_ament_args(context)
         cmd_args += context.ament_gradle_args
 
         cmd = [GRADLE_EXECUTABLE]
