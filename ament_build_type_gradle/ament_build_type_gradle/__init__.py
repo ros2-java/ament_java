@@ -108,6 +108,7 @@ class AmentGradleBuildType(BuildType):
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
             '-Pament.build_tests=' + str(context.build_tests),
+            '-Pament.package_name=' + context.package_manifest.name,
         ]
         cmd_args += context.ament_gradle_args
 
@@ -124,6 +125,7 @@ class AmentGradleBuildType(BuildType):
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
             '-Pament.build_tests=' + str(context.build_tests),
+            '-Pament.package_name=' + context.package_manifest.name,
         ]
         cmd_args += context.ament_gradle_args
 
@@ -173,6 +175,7 @@ class AmentGradleBuildType(BuildType):
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
             '-Pament.build_tests=' + str(context.build_tests),
+            '-Pament.package_name=' + context.package_manifest.name,
         ]
 
         cmd_args += context.ament_gradle_args
@@ -190,6 +193,7 @@ class AmentGradleBuildType(BuildType):
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
             '-Pament.build_tests=' + str(context.build_tests),
+            '-Pament.package_name=' + context.package_manifest.name,
         ]
 
         cmd_args += context.ament_gradle_args
