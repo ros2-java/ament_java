@@ -30,23 +30,10 @@ from ament_tools.build_type import BuildAction
 from ament_tools.build_type import BuildType
 from ament_tools.build_types.common import expand_package_level_setup_files
 from ament_tools.helper import deploy_file
-from ament_tools.topological_order import topological_order_packages
 from ament_tools.verbs.build_pkg import cli
+from ament_tools.verbs import VerbExecutionError
 
 IS_WINDOWS = os.name == 'nt'
-
-
-def get_gradle_executable():
-    gradle_script = 'gradle.bat' if IS_WINDOWS else 'gradle'
-    if 'GRADLE_HOME' in os.environ:
-        gradle_home = os.environ['GRADLE_HOME']
-        gradle_path = os.path.join(gradle_home, 'bin', gradle_script)
-        if os.path.isfile(gradle_path):
-            return gradle_path
-    return shutil.which(gradle_script)
-
-
-GRADLE_EXECUTABLE = get_gradle_executable()
 
 
 class AmentGradleBuildType(BuildType):
@@ -90,13 +77,44 @@ class AmentGradleBuildType(BuildType):
         ]
         return cmd_args
 
+    def get_gradle_wrapper(self, context):
+        gradlew_script = 'gradlew.bat' if IS_WINDOWS else 'gradlew'
+        gradlew_path = os.path.join(context.source_space, gradlew_script)
+        if os.path.isfile(gradlew_path):
+            return gradle_path
+
+    def get_gradle_executable(self, context):
+        gradlew_path = self.get_gradle_wrapper(context)
+        if gradlew_path:
+            return gradlew_path
+
+        gradle_script = 'gradle.bat' if IS_WINDOWS else 'gradle'
+        if 'GRADLE_HOME' in os.environ:
+            gradle_home = os.environ['GRADLE_HOME']
+            gradle_path = os.path.join(gradle_home, 'bin', gradle_script)
+            if os.path.isfile(gradle_path):
+                return gradle_path
+        gradle_path = shutil.which(gradle_script)
+        if gradle_path:
+            return gradle_path
+        raise VerbExecutionError("Could not find 'gradle' executable")
+
+    def prepare_cmd(self, context, gradle_task=None):
+        cmd_args = self.get_ament_args(context)
+        cmd_args += context.ament_gradle_args
+
+        cmd = [self.get_gradle_executable(context)]
+        cmd += cmd_args
+        if gradle_task:
+            cmd += [gradle_task]
+        cmd += ['--stacktrace']
+
+        return cmd
+
     def extend_context(self, options):
         ce = super(AmentGradleBuildType, self).extend_context(options)
         ament_gradle_args = list(options.ament_gradle_args)
-        if not any([
-                arg.startswith('-Pament.android_variant=')
-                for arg in ament_gradle_args
-        ]):
+        if not any([arg.startswith('-Pament.android_variant=') for arg in ament_gradle_args]):
             ament_gradle_args.append('-Pament.android_variant=release')
         ce.add('ament_gradle_args', ament_gradle_args)
         ce.add('ament_gradle_isolated', options.isolated)
@@ -109,20 +127,16 @@ class AmentGradleBuildType(BuildType):
 
         # If using the Gradle Ament Plugin, JAR files are installed into
         # $AMENT_CURRENT_PREFIX/share/$PROJECT_NAME/java/$PROJECT_NAME.jar
-        classpath = os.path.join('$AMENT_CURRENT_PREFIX', 'share',
-                                 context.package_manifest.name, 'java',
-                                 context.package_manifest.name + ".jar")
+        classpath = os.path.join('$AMENT_CURRENT_PREFIX', 'share', context.package_manifest.name,
+                                 'java', context.package_manifest.name + ".jar")
 
-        content = configure_file(template_path,
-                                 {'_AMENT_EXPORT_JARS_CLASSPATH': classpath, })
+        content = configure_file(template_path, {'_AMENT_EXPORT_JARS_CLASSPATH': classpath, })
 
-        environment_hooks_path = os.path.join(
-            'share', context.package_manifest.name, 'environment')
-        classpath_environment_hook = os.path.join(
-            environment_hooks_path, os.path.basename(template_path)[:-3])
+        environment_hooks_path = os.path.join('share', context.package_manifest.name, 'environment')
+        classpath_environment_hook = os.path.join(environment_hooks_path,
+                                                  os.path.basename(template_path)[:-3])
 
-        destination_path = os.path.join(context.build_space,
-                                        classpath_environment_hook)
+        destination_path = os.path.join(context.build_space, classpath_environment_hook)
         destination_dir = os.path.dirname(destination_path)
         if not os.path.exists(destination_dir):
             os.makedirs(destination_dir)
@@ -133,26 +147,12 @@ class AmentGradleBuildType(BuildType):
         expand_package_level_setup_files(context, [classpath_environment_hook],
                                          environment_hooks_path)
 
-        cmd_args = self.get_ament_args(context)
-        cmd_args += context.ament_gradle_args
-
-        cmd = [GRADLE_EXECUTABLE]
-        cmd += cmd_args
-        cmd += ['assemble']
-        cmd += ['--stacktrace']
-
-        yield BuildAction(cmd, cwd=context.source_space)
+        yield BuildAction(
+            self.prepare_cmd(
+                context, gradle_task='assemble'), cwd=context.source_space)
 
     def on_test(self, context):
-        cmd_args = self.get_ament_args(context)
-        cmd_args += context.ament_gradle_args
-
-        cmd = [GRADLE_EXECUTABLE]
-        cmd += cmd_args
-        cmd += ['test']
-        cmd += ['--stacktrace']
-
-        yield BuildAction(cmd, cwd=context.source_space)
+        yield BuildAction(self.prepare_cmd(context, gradle_task='test'), cwd=context.source_space)
 
     def on_install(self, context):
         # deploy package manifest
@@ -163,9 +163,8 @@ class AmentGradleBuildType(BuildType):
             dst_subfolder=os.path.join('share', context.package_manifest.name))
 
         # create marker file
-        marker_file = os.path.join(context.install_space, 'share',
-                                   'ament_index', 'resource_index', 'packages',
-                                   context.package_manifest.name)
+        marker_file = os.path.join(context.install_space, 'share', 'ament_index', 'resource_index',
+                                   'packages', context.package_manifest.name)
         if not os.path.exists(marker_file):
             marker_dir = os.path.dirname(marker_file)
             if not os.path.exists(marker_dir):
@@ -178,33 +177,18 @@ class AmentGradleBuildType(BuildType):
         # deploy CLASSPATH environment hook
         destination_file = 'classpath' + ('.sh' if not IS_WINDOWS else '.bat')
         deploy_file(context, context.build_space,
-                    os.path.join('share', context.package_manifest.name,
-                                 'environment', destination_file))
+                    os.path.join('share', context.package_manifest.name, 'environment',
+                                 destination_file))
 
         # deploy package-level setup files
         for name in get_package_level_template_names():
             assert name.endswith('.in')
             deploy_file(context, context.build_space,
-                        os.path.join('share', context.package_manifest.name,
-                                     name[:-3]))
+                        os.path.join('share', context.package_manifest.name, name[:-3]))
 
-        cmd_args = self.get_ament_args(context)
-        cmd_args += context.ament_gradle_args
-
-        cmd = [GRADLE_EXECUTABLE]
-        cmd += cmd_args
-        cmd += ['assemble']
-        cmd += ['--stacktrace']
-
-        yield BuildAction(cmd, cwd=context.source_space)
+        yield BuildAction(
+            self.prepare_cmd(
+                context, gradle_task='assemble'), cwd=context.source_space)
 
     def on_uninstall(self, context):
-        cmd_args = self.get_ament_args(context)
-        cmd_args += context.ament_gradle_args
-
-        cmd = [GRADLE_EXECUTABLE]
-        cmd += cmd_args
-        cmd += ['clean']
-        cmd += ['--stacktrace']
-
-        yield BuildAction(cmd, cwd=context.source_space)
+        yield BuildAction(self.prepare_cmd(context, gradle_task='clean'), cwd=context.source_space)
