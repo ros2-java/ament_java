@@ -22,7 +22,7 @@ import shutil
 
 from ament_build_type_gradle.templates import get_environment_hook_template_path
 
-from ament_package.templates import configure_file
+from ament_package.templates import configure_string
 from ament_package.templates import get_package_level_template_names
 
 from ament_tools.helper import extract_argument_group
@@ -121,20 +121,22 @@ class AmentGradleBuildType(BuildType):
         return ce
 
     def on_build(self, context):
+        ext = '.sh' if not IS_WINDOWS else '.bat'
+        classpath_filename = 'classpath' + ext
+
         # expand environment hook for CLASSPATH
-        ext = '.sh.in' if not IS_WINDOWS else '.bat.in'
-        template_path = get_environment_hook_template_path('classpath' + ext)
+        template = get_environment_hook_template_path()
 
         # If using the Gradle Ament Plugin, JAR files are installed into
         # $AMENT_CURRENT_PREFIX/share/$PROJECT_NAME/java/$PROJECT_NAME.jar
         classpath = os.path.join('$AMENT_CURRENT_PREFIX', 'share', context.package_manifest.name,
                                  'java', context.package_manifest.name + ".jar")
 
-        content = configure_file(template_path, {'_AMENT_EXPORT_JARS_CLASSPATH': classpath, })
+        content = configure_string(template, {'_AMENT_EXPORT_JARS_CLASSPATH': classpath, })
 
         environment_hooks_path = os.path.join('share', context.package_manifest.name, 'environment')
         classpath_environment_hook = os.path.join(environment_hooks_path,
-                                                  os.path.basename(template_path)[:-3])
+                                                  os.path.basename(classpath_filename))
 
         destination_path = os.path.join(context.build_space, classpath_environment_hook)
         destination_dir = os.path.dirname(destination_path)

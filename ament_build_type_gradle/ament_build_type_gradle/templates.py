@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from ament_index_python import get_resource
 
+IS_WINDOWS = os.name == 'nt'
 
-def get_environment_hook_template_path(name):
-    return get_resource('templates', 'ament_build_type_gradle_classpath')[0]
+
+def get_environment_hook_template_path():
+    ext = 'sh' if not IS_WINDOWS else 'bat'
+    return get_resource('templates', 'ament_build_type_gradle_classpath_' + ext)[0]
