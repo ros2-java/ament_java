@@ -14,4 +14,14 @@ ament_index_register_resource(
     CONTENT_FILE "classpath.bat.template"
     PACKAGE_NAME "ament_build_type_gradle_classpath_bat")
 
+ament_index_register_resource(
+    "templates"
+    CONTENT_FILE "jni_library_path.sh.template"
+    PACKAGE_NAME "ament_build_type_gradle_jni_library_path_sh")
+
+ament_index_register_resource(
+    "templates"
+    CONTENT_FILE "jni_library_path.bat.template"
+    PACKAGE_NAME "ament_build_type_gradle_jni_library_path_bat")
+    
 ament_package()
