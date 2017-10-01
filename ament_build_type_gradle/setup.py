@@ -3,7 +3,6 @@ import os
 from setuptools import find_packages
 from setuptools import setup
 
-
 setup(
     name='ament_build_type_gradle',
     version='0.0.0',
@@ -24,10 +23,6 @@ setup(
     license='Apache License, Version 2.0',
     test_suite='test',
     entry_points={
-        'ament.build_types':
-        ['ament_gradle = ament_build_type_gradle:AmentGradleBuildType', ],
+        'ament.build_types': ['ament_gradle = ament_build_type_gradle:AmentGradleBuildType', ],
     },
-    package_data={
-        'ament_build_type_gradle': ['template/environment_hook/*.in']
-    },
-    )
+    package_data={'ament_build_type_gradle': ['template/environment_hook/*.in']}, )

@@ -19,6 +19,7 @@
 
 import os
 import shutil
+from distutils import dir_util
 
 from ament_build_type_gradle.templates import get_environment_hook_template_path
 
@@ -40,6 +41,64 @@ class AmentGradleBuildType(BuildType):
     build_type = 'ament_gradle'
     description = "ament package built with Gradle"
 
+    def _build_file_tree(self, start_path):
+        out_dirnames = set()
+        out_filenames = set()
+        for dirname, dirnames, filenames in os.walk(start_path):
+            for subdirname in dirnames:
+                out_dirnames.add(
+                    os.path.relpath(
+                        os.path.join(dirname, subdirname), start=start_path))
+
+            for filename in filenames:
+                out_filenames.add(
+                    os.path.relpath(
+                        os.path.join(dirname, filename), start=start_path))
+        return (out_dirnames, out_filenames)
+
+    def _ament_gradle_recursive_dependencies(self, context):
+        for export in context.package_manifest.exports:
+            if export.tagname == 'ament_gradle_recursive_dependencies':
+                return True
+        return False
+
+    def _get_ament_args(self, context):
+        cmd_args = [
+            '-Pament.build_space=' + context.build_space,
+            '-Pament.install_space=' + context.install_space,
+            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
+            '-Pament.build_tests=' + str(context.build_tests),
+            '-Pament.package_manifest.name=' + context.package_manifest.name,
+            '-Pament.exec_dependency_paths_in_workspace=' +
+            ':'.join(context.exec_dependency_paths_in_workspace),
+            '-Pament.gradle_recursive_dependencies=' + str(
+                self._ament_gradle_recursive_dependencies(context)),
+            '-Pament.gradle_isolated=' + str(context.ament_gradle_isolated),
+        ]
+        return cmd_args
+
+    def _get_gradle_wrapper(self, context):
+        gradlew_script = 'gradlew.bat' if IS_WINDOWS else 'gradlew'
+        gradlew_path = os.path.join(context.source_space, gradlew_script)
+        if os.path.isfile(gradlew_path):
+            return gradle_path
+
+    def _get_gradle_executable(self, context):
+        gradlew_path = self._get_gradle_wrapper(context)
+        if gradlew_path:
+            return gradlew_path
+
+        gradle_script = 'gradle.bat' if IS_WINDOWS else 'gradle'
+        if 'GRADLE_HOME' in os.environ:
+            gradle_home = os.environ['GRADLE_HOME']
+            gradle_path = os.path.join(gradle_home, 'bin', gradle_script)
+            if os.path.isfile(gradle_path):
+                return gradle_path
+        gradle_path = shutil.which(gradle_script)
+        if gradle_path:
+            return gradle_path
+        raise VerbExecutionError("Could not find 'gradle' executable")
+
     def prepare_arguments(self, parser):
         parser.add_argument(
             '--ament-gradle-args',
@@ -56,54 +115,11 @@ class AmentGradleBuildType(BuildType):
         extras = {'ament_gradle_args': gradle_args, }
         return args, extras
 
-    def ament_gradle_recursive_dependencies(self, context):
-        for export in context.package_manifest.exports:
-            if export.tagname == 'ament_gradle_recursive_dependencies':
-                return True
-        return False
-
-    def get_ament_args(self, context):
-        cmd_args = [
-            '-Pament.build_space=' + context.build_space,
-            '-Pament.install_space=' + context.install_space,
-            '-Pament.dependencies=' + ':'.join(context.build_dependencies),
-            '-Pament.build_tests=' + str(context.build_tests),
-            '-Pament.package_manifest.name=' + context.package_manifest.name,
-            '-Pament.exec_dependency_paths_in_workspace=' +
-            ':'.join(context.exec_dependency_paths_in_workspace),
-            '-Pament.gradle_recursive_dependencies=' + str(
-                self.ament_gradle_recursive_dependencies(context)),
-            '-Pament.gradle_isolated=' + str(context.ament_gradle_isolated),
-        ]
-        return cmd_args
-
-    def get_gradle_wrapper(self, context):
-        gradlew_script = 'gradlew.bat' if IS_WINDOWS else 'gradlew'
-        gradlew_path = os.path.join(context.source_space, gradlew_script)
-        if os.path.isfile(gradlew_path):
-            return gradle_path
-
-    def get_gradle_executable(self, context):
-        gradlew_path = self.get_gradle_wrapper(context)
-        if gradlew_path:
-            return gradlew_path
-
-        gradle_script = 'gradle.bat' if IS_WINDOWS else 'gradle'
-        if 'GRADLE_HOME' in os.environ:
-            gradle_home = os.environ['GRADLE_HOME']
-            gradle_path = os.path.join(gradle_home, 'bin', gradle_script)
-            if os.path.isfile(gradle_path):
-                return gradle_path
-        gradle_path = shutil.which(gradle_script)
-        if gradle_path:
-            return gradle_path
-        raise VerbExecutionError("Could not find 'gradle' executable")
-
-    def prepare_cmd(self, context, gradle_task=None):
-        cmd_args = self.get_ament_args(context)
+    def _prepare_cmd(self, context, gradle_task=None):
+        cmd_args = self._get_ament_args(context)
         cmd_args += context.ament_gradle_args
 
-        cmd = [self.get_gradle_executable(context)]
+        cmd = [self._get_gradle_executable(context)]
         cmd += cmd_args
         if gradle_task:
             cmd += [gradle_task]
@@ -149,12 +165,32 @@ class AmentGradleBuildType(BuildType):
         expand_package_level_setup_files(context, [classpath_environment_hook],
                                          environment_hooks_path)
 
+        # remove anything that's on the destination tree but not in the source tree
+        src_package_src_dir = os.path.join(context.source_space, 'src')
+        dst_package_src_dir = os.path.join(context.build_space, 'src')
+
+        src_dirnames, src_filenames = self._build_file_tree(src_package_src_dir)
+        dst_dirnames, dst_filenames = self._build_file_tree(dst_package_src_dir)
+
+        prune_dirnames = dst_dirnames - src_dirnames
+        prune_filenames = dst_filenames - src_filenames
+
+        for prune_filename in prune_filenames:
+            os.remove(os.path.join(dst_package_src_dir, prune_filename))
+        for prune_dirname in prune_dirnames:
+            if os.path.exists(prune_dirname):
+                shutil.rmtree(os.path.join(dst_package_src_dir, prune_dirname))
+
+        # copy files from source_space to build_space to avoid poluting the latter
+        # during the build process
+        dir_util.copy_tree(context.source_space, context.build_space, update=1)
+
         yield BuildAction(
-            self.prepare_cmd(
-                context, gradle_task='assemble'), cwd=context.source_space)
+            self._prepare_cmd(
+                context, gradle_task='assemble'), cwd=context.build_space)
 
     def on_test(self, context):
-        yield BuildAction(self.prepare_cmd(context, gradle_task='test'), cwd=context.source_space)
+        yield BuildAction(self._prepare_cmd(context, gradle_task='test'), cwd=context.build_space)
 
     def on_install(self, context):
         # deploy package manifest
@@ -189,8 +225,8 @@ class AmentGradleBuildType(BuildType):
                         os.path.join('share', context.package_manifest.name, name[:-3]))
 
         yield BuildAction(
-            self.prepare_cmd(
-                context, gradle_task='assemble'), cwd=context.source_space)
+            self._prepare_cmd(
+                context, gradle_task='assemble'), cwd=context.build_space)
 
     def on_uninstall(self, context):
-        yield BuildAction(self.prepare_cmd(context, gradle_task='clean'), cwd=context.source_space)
+        yield BuildAction(self._prepare_cmd(context, gradle_task='clean'), cwd=context.build_space)
