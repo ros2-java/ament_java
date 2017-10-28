@@ -21,7 +21,8 @@ import os
 import shutil
 from distutils import dir_util
 
-from ament_build_type_gradle.templates import get_environment_hook_template_path
+from ament_package.templates import get_environment_hook_template_path
+from ament_build_type_gradle.templates import get_environment_hook_classpath_template_path
 
 from ament_package.templates import configure_string
 from ament_package.templates import get_package_level_template_names
@@ -137,11 +138,18 @@ class AmentGradleBuildType(BuildType):
         return ce
 
     def on_build(self, context):
+        environment_hooks_path = os.path.join('share', context.package_manifest.name, 'environment')
+
         ext = '.sh' if not IS_WINDOWS else '.bat'
-        classpath_filename = 'classpath' + ext
+        # expand environment hook for AMENT_PREFIX_PATH
+        ament_prefix_path_environment_hook = os.path.join(environment_hooks_path,
+                                                          'ament_prefix_path' + ext)
+        # expand environment hook for PATH
+        path_environment_hook = os.path.join(environment_hooks_path, 'path' + ext)
 
         # expand environment hook for CLASSPATH
-        template = get_environment_hook_template_path()
+        classpath_filename = 'classpath' + ext
+        template = get_environment_hook_classpath_template_path()
 
         # If using the Gradle Ament Plugin, JAR files are installed into
         # $AMENT_CURRENT_PREFIX/share/$PROJECT_NAME/java/$PROJECT_NAME.jar
@@ -150,7 +158,6 @@ class AmentGradleBuildType(BuildType):
 
         content = configure_string(template, {'_AMENT_EXPORT_JARS_CLASSPATH': classpath, })
 
-        environment_hooks_path = os.path.join('share', context.package_manifest.name, 'environment')
         classpath_environment_hook = os.path.join(environment_hooks_path,
                                                   os.path.basename(classpath_filename))
 
@@ -161,8 +168,14 @@ class AmentGradleBuildType(BuildType):
         with open(destination_path, 'w') as h:
             h.write(content)
 
+        environment_hooks = [
+            ament_prefix_path_environment_hook,
+            classpath_environment_hook,
+            path_environment_hook,
+        ]
+
         # expand package-level setup files
-        expand_package_level_setup_files(context, [classpath_environment_hook],
+        expand_package_level_setup_files(context, environment_hooks,
                                          environment_hooks_path)
 
         # remove anything that's on the destination tree but not in the source tree
@@ -211,6 +224,17 @@ class AmentGradleBuildType(BuildType):
                 pass
 
         ext = '.sh' if not IS_WINDOWS else '.bat'
+        # deploy AMENT_PREFIX_PATH environment hook
+        app_template_path = get_environment_hook_template_path('ament_prefix_path' + ext)
+        deploy_file(
+            context, os.path.dirname(app_template_path), os.path.basename(app_template_path),
+            dst_subfolder=os.path.join('share', context.package_manifest.name, 'environment'))
+
+        # deploy PATH environment hook
+        path_template_path = get_environment_hook_template_path('path' + ext)
+        deploy_file(
+            context, os.path.dirname(path_template_path), os.path.basename(path_template_path),
+            dst_subfolder=os.path.join('share', context.package_manifest.name, 'environment'))
 
         # deploy CLASSPATH environment hook
         destination_file = 'classpath' + ('.sh' if not IS_WINDOWS else '.bat')
