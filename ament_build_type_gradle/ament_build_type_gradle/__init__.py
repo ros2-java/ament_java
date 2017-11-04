@@ -65,6 +65,7 @@ class AmentGradleBuildType(BuildType):
 
     def _get_ament_args(self, context):
         cmd_args = [
+            '-Pament.source_space=' + context.source_space,
             '-Pament.build_space=' + context.build_space,
             '-Pament.install_space=' + context.install_space,
             '-Pament.dependencies=' + ':'.join(context.build_dependencies),
