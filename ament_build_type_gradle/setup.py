@@ -8,6 +8,7 @@ setup(
     version='0.0.0',
     packages=find_packages(exclude=['test']),
     install_requires=['ament-package', 'osrf_pycommon'],
+    zip_safe=True,
     author='Esteve Fernandez',
     author_email='esteve@apache.org',
     maintainer='Esteve Fernandez',
