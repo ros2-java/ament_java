@@ -17,8 +17,8 @@ repositories:
     version: master
   ament/ament_tools:
     type: git
-    url: https://github.com/ament/ament_tools.git
-    version: master
+    url: https://github.com/esteve/ament_tools.git
+    version: win32-platform
   ament/gmock_vendor:
     type: git
     url: https://github.com/ament/gmock_vendor.git
