@@ -83,7 +83,7 @@ class AmentGradleBuildType(BuildType):
         gradlew_script = 'gradlew.bat' if IS_WINDOWS else 'gradlew'
         gradlew_path = os.path.join(context.source_space, gradlew_script)
         if os.path.isfile(gradlew_path):
-            return gradle_path
+            return gradlew_path
 
     def _get_gradle_executable(self, context):
         gradlew_path = self._get_gradle_wrapper(context)
