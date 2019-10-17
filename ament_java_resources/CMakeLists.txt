@@ -11,6 +11,11 @@ ament_index_register_resource(
 
 ament_index_register_resource(
     "templates"
+    CONTENT_FILE "classpath.dsv.template"
+    PACKAGE_NAME "ament_build_type_gradle_classpath_dsv")
+
+ament_index_register_resource(
+    "templates"
     CONTENT_FILE "classpath.bat.template"
     PACKAGE_NAME "ament_build_type_gradle_classpath_bat")
 
@@ -23,5 +28,10 @@ ament_index_register_resource(
     "templates"
     CONTENT_FILE "jni_library_path.bat.template"
     PACKAGE_NAME "ament_build_type_gradle_jni_library_path_bat")
-    
+
+ament_index_register_resource(
+    "templates"
+    CONTENT_FILE "jni_library_path.dsv.template"
+    PACKAGE_NAME "ament_build_type_gradle_jni_library_path_dsv")
+
 ament_package()
