@@ -15,10 +15,6 @@ repositories:
     type: git
     url: https://github.com/ament/ament_package.git
     version: dashing
-  ament/ament_tools:
-    type: git
-    url: https://github.com/esteve/ament_tools.git
-    version: win32-platform
   ament/googletest:
     type: git
     url: https://github.com/ament/googletest.git
