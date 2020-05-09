@@ -1,1 +1,0 @@
-prepend-non-duplicate;@JNI_LIB_ENV_VAR@;lib/jni
