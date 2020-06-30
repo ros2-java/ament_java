@@ -1,5 +1,0 @@
-ament_prepend_unique_value CLASSPATH "."
-REM https://ss64.com/nt/for.html
-FOR %%j IN (@_AMENT_EXPORT_JARS_CLASSPATH@) DO (
-  ament_prepend_unique_value CLASSPATH "%%j"
-)
