@@ -3,10 +3,17 @@ import os
 from setuptools import find_packages
 from setuptools import setup
 
+package_name = 'ament_build_type_gradle'
+
 setup(
-    name='ament_build_type_gradle',
+    name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
+    data_files=[
+        ('share/' + package_name, ['package.xml']),
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+    ],
     install_requires=['ament-package', 'osrf_pycommon'],
     zip_safe=True,
     author='Esteve Fernandez',
@@ -24,6 +31,6 @@ setup(
     license='Apache License, Version 2.0',
     test_suite='test',
     entry_points={
-        'ament.build_types': ['ament_gradle = ament_build_type_gradle:AmentGradleBuildType', ],
+        'ament.build_types': [f'ament_gradle = {package_name}:AmentGradleBuildType', ],
     },
-    package_data={'ament_build_type_gradle': ['template/environment_hook/*.in']}, )
+    package_data={f'{package_name}': ['template/environment_hook/*.in']}, )
